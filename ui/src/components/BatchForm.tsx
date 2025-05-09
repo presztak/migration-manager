@@ -4,7 +4,8 @@ import Form from 'react-bootstrap/Form';
 import { useQuery } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import { fetchTargets } from 'api/targets';
-import { Batch } from 'types/batch';
+import MigrationWindowWidget from 'components/MigrationWindowWidget';
+import { Batch, MigrationWindow } from 'types/batch';
 
 interface Props {
   batch?: Batch;
@@ -36,7 +37,16 @@ const BatchForm: FC<Props> = ({ batch, onSubmit }) => {
     return errors;
   };
 
-  let formikInitialValues = {
+  let formikInitialValues: {
+    name: string,
+    target: string,
+    target_project: string,
+    status: string,
+    status_message: string,
+    storage_pool: string,
+    include_expression: string,
+    migration_windows: MigrationWindow[],
+  } = {
     name: '',
     target: '',
     target_project: 'default',
@@ -44,6 +54,7 @@ const BatchForm: FC<Props> = ({ batch, onSubmit }) => {
     status_message: '',
     storage_pool: 'local',
     include_expression: '',
+    migration_windows: [],
   };
 
   if (batch) {
@@ -55,6 +66,7 @@ const BatchForm: FC<Props> = ({ batch, onSubmit }) => {
       status_message: batch.status_message,
       storage_pool: batch.storage_pool,
       include_expression: batch.include_expression,
+      migration_windows: batch.migration_windows,
     };
   }
 
@@ -141,6 +153,12 @@ const BatchForm: FC<Props> = ({ batch, onSubmit }) => {
               <Form.Control.Feedback type="invalid">
                 {formik.errors.include_expression}
               </Form.Control.Feedback>
+          </Form.Group>
+          <Form.Group className="mb-3" controlId="migration_windows">
+            <Form.Label>Migration windows</Form.Label>
+            <MigrationWindowWidget
+              value={formik.values.migration_windows}
+              onChange={(value) => formik.setFieldValue("migration_windows", value)} />
           </Form.Group>
         </Form>
       </div>
