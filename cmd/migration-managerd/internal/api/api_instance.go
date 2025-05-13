@@ -124,6 +124,11 @@ func instancesGet(d *Daemon, r *http.Request) response.Response {
 		recursion = 0
 	}
 
+	includeExpression := r.FormValue("include_expression")
+	if includeExpression != "" {
+		recursion = 1
+	}
+
 	if recursion == 1 {
 		ctx, trans := transaction.Begin(r.Context())
 		defer func() {
@@ -140,7 +145,19 @@ func instancesGet(d *Daemon, r *http.Request) response.Response {
 
 		result := make([]api.Instance, 0, len(instances))
 		for _, instance := range instances {
-			result = append(result, instance.ToAPI())
+			if includeExpression == "" {
+				result = append(result, instance.ToAPI())
+				continue
+			}
+
+			match, err := instance.MatchesCriteria(includeExpression)
+			if err != nil {
+				return response.SmartError(err)
+			}
+
+			if match {
+				result = append(result, instance.ToAPI())
+			}
 		}
 
 		return response.SyncResponse(true, result)

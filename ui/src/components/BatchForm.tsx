@@ -1,12 +1,14 @@
-import { FC } from 'react';
-import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
+import { FC, useEffect, useState } from 'react';
+import { Button, Form, Spinner } from 'react-bootstrap';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { useFormik } from 'formik';
+import { fetchInstances } from 'api/instances'
 import { fetchTargets } from 'api/targets';
 import BatchConstraintsWidget from 'components/BatchConstraintsWidget';
 import MigrationWindowsWidget from 'components/MigrationWindowsWidget';
 import { Batch, BatchConstraint, MigrationWindow } from 'types/batch';
+import { useDebounce } from 'util/batch';
 import { formatDate, isMigrationWindowDateValid } from 'util/date';
 
 interface Props {
@@ -32,6 +34,25 @@ const BatchForm: FC<Props> = ({ batch, onSubmit }) => {
     error: targetsError,
     isLoading: isLoadingTargets,
   } = useQuery({ queryKey: ['targets'], queryFn: fetchTargets });
+  const [isInstancesLoading, setIsInstancesLoading] = useState(false);
+  const [instancesCount, setInstancesCount] = useState<number>(0);
+
+  const fetchResults = async (searchTerm: string) => {
+    if (!searchTerm) {
+      setInstancesCount(0);
+      return;
+    }
+
+    setIsInstancesLoading(true);
+    try {
+      const instances = await fetchInstances(searchTerm);
+      setInstancesCount(instances.length);
+    } catch (err) {
+      setInstancesCount(0);
+    } finally {
+      setIsInstancesLoading(false);
+    }
+  };
 
   const validateMigrationWindows = (windows: MigrationWindow[]): string | undefined => {
     let errors = "";
@@ -156,6 +177,12 @@ const BatchForm: FC<Props> = ({ batch, onSubmit }) => {
      },
    });
 
+  const debouncedSearch = useDebounce(formik.values.include_expression, 500);
+
+  useEffect(() => {
+    fetchResults(debouncedSearch);
+  }, [debouncedSearch]);
+
   return (
     <div className="form-container">
       <div>
@@ -214,13 +241,29 @@ const BatchForm: FC<Props> = ({ batch, onSubmit }) => {
           </Form.Group>
           <Form.Group className="mb-3" controlId="expression">
             <Form.Label>Expression</Form.Label>
-            <Form.Control
-              type="text"
-              name="include_expression"
-              value={formik.values.include_expression}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              isInvalid={!!formik.errors.include_expression && formik.touched.include_expression}/>
+            <div style={{ position: 'relative' }}>
+              <Form.Control
+                type="text"
+                name="include_expression"
+                value={formik.values.include_expression}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                isInvalid={!!formik.errors.include_expression && formik.touched.include_expression}
+                style={{ paddingRight: '2.5rem' }} />
+              {isInstancesLoading && (
+                <Spinner
+                  animation="border"
+                  role="status"
+                  size="sm"
+                  className="include-expression-spinner"/>
+              )}
+
+              {!isInstancesLoading && (
+                <span className="include-expression-info">
+                  <Link to={`/ui/instances?filter=${formik.values.include_expression}`}>{instancesCount}</Link>
+                </span>
+              )}
+              </div>
               <Form.Control.Feedback type="invalid">
                 {formik.errors.include_expression}
               </Form.Control.Feedback>
